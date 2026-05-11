@@ -1,15 +1,21 @@
-services:
+networks:
+  watchtogether-network:
+    driver: bridge
 
+
+services:
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
-      - "${APP_PORT:-80}:80"
+      - "80:80"
     volumes:
       - './nginx.conf:/etc/nginx/nginx.conf'
     depends_on:
       - backend
       - frontend
+    networks:
+      - watchtogether-network
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -19,11 +25,15 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pg_data:/var/lib/postgresql/data
+    networks:
+      - watchtogether-network
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-
+    networks:
+      - watchtogether-network
+      
   backend:
     build:
       context: ./backend
@@ -35,6 +45,8 @@ services:
       - redis
     expose:
       - "8000"
+    networks:
+      - watchtogether-network
 
   frontend:
     build:
@@ -44,6 +56,8 @@ services:
       - backend
     ports:
       - "${APP_PORT:-80}:80"
+    networks:
+      - watchtogether-network
 
 volumes:
   pg_data:
