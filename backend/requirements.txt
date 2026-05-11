@@ -1,0 +1,15 @@
+Django==4.2.7
+djangorestframework==3.14.0
+django-cors-headers==4.9.0
+channels==4.0.0
+channels-redis==4.1.0
+daphne==4.0.0
+redis==5.0.1
+django-redis==5.4.0
+djangorestframework-simplejwt==5.5.1
+validators==0.22.0
+python-dotenv==1.0.0
+setuptools>=69.0.0
+
+# Опционально для PostgreSQL (нужны бинарные колёса под вашу ОС / Python):
+# psycopg2-binary==2.9.9
