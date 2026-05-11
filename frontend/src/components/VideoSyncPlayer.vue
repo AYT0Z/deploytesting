@@ -79,6 +79,7 @@ const lastEmbedAppliedT = ref(-1)
 /** Rutube embed: время и состояние из postMessage API плеера */
 const rutubeCurrentTime = ref(0)
 const rutubePlaying = ref(false)
+const rutubeAdPlaying = ref(false)
 
 let rutubeMessageHandler = null
 
@@ -451,12 +452,20 @@ function rutubeStateToPlaying(state) {
   return null
 }
 
+function isRutubeAdState(state) {
+  const s = String(state ?? '').toLowerCase()
+  return s.includes('ad')
+}
+
 function needsTimeSyncRutube(targetT) {
   if (typeof targetT !== 'number' || Number.isNaN(targetT)) return true
   return Math.abs(rutubeCurrentTime.value - targetT) > SYNC_TOLERANCE_SEC
 }
 
 function applyRutubeRemote(data) {
+  // Во время рекламы у гостя не трогаем встроенный плеер:
+  // иначе внешняя пауза/плей остановит рекламный ролик.
+  if (!isHost.value && rutubeAdPlaying.value) return
   const t = typeof data.t === 'number' ? data.t : 0
   const act = data.action
   if (act === 'tick') {
@@ -484,6 +493,7 @@ function applyRutubeRemote(data) {
 
 function resyncGuestRutubeFromHost() {
   if (isHost.value || applying.value || provider.value !== 'rutube') return
+  if (rutubeAdPlaying.value) return
   const s = latestHostSync.value
   if (!s) return
   applying.value = true
@@ -510,6 +520,8 @@ function onRutubeWindowMessage(event) {
   }
 
   if (msg.type === 'player:changeState') {
+    const wasAd = rutubeAdPlaying.value
+    rutubeAdPlaying.value = isRutubeAdState(d.state)
     const ct = Number(d.currentTime ?? d.time)
     if (!Number.isNaN(ct)) rutubeCurrentTime.value = ct
     const playing = rutubeStateToPlaying(d.state)
@@ -519,6 +531,10 @@ function onRutubeWindowMessage(event) {
       if (playing === true) sendSync({ action: 'play', t, playing: true })
       else if (playing === false) sendSync({ action: 'pause', t, playing: false })
     } else if (!isHost.value && !applying.value && playing !== null) {
+      setTimeout(() => resyncGuestRutubeFromHost(), 80)
+    }
+    if (!isHost.value && wasAd && !rutubeAdPlaying.value) {
+      // Реклама закончилась — сразу подтягиваемся к ведущему.
       setTimeout(() => resyncGuestRutubeFromHost(), 80)
     }
   }
@@ -780,6 +796,7 @@ function disposePlayers() {
   latestHostSync.value = null
   rutubeCurrentTime.value = 0
   rutubePlaying.value = false
+  rutubeAdPlaying.value = false
 }
 
 onMounted(async () => {
